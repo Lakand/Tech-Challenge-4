@@ -27,6 +27,8 @@ from pytorch_lightning.loggers import MLFlowLogger
 import mlflow
 from mlflow.models.signature import infer_signature
 from pandas.tseries.offsets import BusinessDay
+from callbacks import PerformanceMonitorCallback
+from mlflow.tracking import MlflowClient
 
 try:
     import pynvml
@@ -131,13 +133,22 @@ def get_gpu_metrics():
 
 @app.post("/train")
 def train_model(request: TrainRequest):
+    # --- 1. INÍCIO DO MONITORAMENTO (Snapshot) ---
+    start_time = time.time()
+    process = psutil.Process(os.getpid())
+    start_ram = process.memory_info().rss / (1024 * 1024)
+    
     global current_model, current_scaler, current_num_features, current_target_idx, current_prediction_steps, current_model_name
     
     mlf_logger = MLFlowLogger(experiment_name="TechChallenge_Training", tracking_uri="http://localhost:5000")
+    
+    # Log de Hiperparâmetros (mantém igual)
     mlf_logger.log_hyperparams({
         "model_name": request.model_name,
         "symbol": request.symbol,
-        "steps": request.prediction_steps
+        "steps": request.prediction_steps,
+        "epochs": request.epochs,
+        "batch_size": request.batch_size
     })
     
     try:
@@ -151,7 +162,6 @@ def train_model(request: TrainRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Atualiza memória RAM imediatamente para este novo modelo
     current_scaler = scaler
     current_num_features = num_features
     current_target_idx = target_idx
@@ -162,15 +172,21 @@ def train_model(request: TrainRequest):
     accelerator = "gpu" if torch.cuda.is_available() else "cpu"
     devices = 1 if torch.cuda.is_available() else "auto"
     
-    trainer = pl.Trainer(max_epochs=request.epochs, logger=mlf_logger, accelerator=accelerator, devices=devices)
+    # Inicializa Trainer
+    trainer = pl.Trainer(max_epochs=request.epochs,
+                         logger=mlf_logger,
+                         accelerator=accelerator,
+                         devices=devices,
+                         callbacks=[PerformanceMonitorCallback()])
+    
+    # TREINAMENTO ACONTECE AQUI
     trainer.fit(model, train_loader, val_loader)
     
     current_model = model
 
-    # --- SALVAMENTO COM NOME DINÂMICO ---
+    # Salvamento (mantém igual)
     save_path_model = f"models/{request.model_name}.pth"
     save_path_artifacts = f"models/{request.model_name}.pkl"
-    
     torch.save(model.state_dict(), save_path_model)
     joblib.dump({
         'scaler': scaler,
@@ -179,8 +195,32 @@ def train_model(request: TrainRequest):
         'prediction_steps': request.prediction_steps
     }, save_path_artifacts)
     
+    # --- 2. FIM DO MONITORAMENTO ---
+    end_time = time.time()
+    total_training_time = end_time - start_time
+    
+    end_ram = process.memory_info().rss / (1024 * 1024)
+    cpu_usage = psutil.cpu_percent(interval=None) # Média instantânea no final
+    gpu_vram_mb, gpu_util_percent = get_gpu_metrics()
+    
+    client = MlflowClient()
+    run_id = trainer.logger.run_id
+
+    # Logar Métricas de Performance do Treino no MLflow
+    # Nota: Usamos o run_id do trainer para adicionar essas métricas na mesma run do treinamento
+    with mlflow.start_run(run_id=trainer.logger.run_id):
+        mlflow.log_metric("train_total_time_sec", total_training_time)
+        mlflow.log_metric("train_final_ram_mb", end_ram)
+        mlflow.log_metric("train_final_cpu_percent", cpu_usage)
+        mlflow.log_metric("train_final_gpu_vram_mb", gpu_vram_mb)
+    
     return {
         "message": f"Treinamento de '{request.model_name}' concluído.",
+        "performance": {
+            "duration_sec": round(total_training_time, 2),
+            "final_ram_mb": round(end_ram, 2),
+            "gpu_vram_mb": round(gpu_vram_mb, 2)
+        },
         "files_saved": [save_path_model, save_path_artifacts]
     }
 
