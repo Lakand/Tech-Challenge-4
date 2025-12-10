@@ -1,0 +1,29 @@
+services:
+  # 1. API (Sua Aplicação)
+  api:
+    build: .
+    container_name: stock_api_modular
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./mlruns:/app/mlruns
+    environment:
+      # DOCKER: Aqui dizemos para a API procurar o MLflow no container vizinho
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      - mlflow
+
+  # 2. MLflow (Servidor de Logs)
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.14.1
+    container_name: mlflow_server
+    ports:
+      - "5000:5000"
+    # TRUQUE: Mapeamos o banco para dentro da pasta /mlflow_data
+    # Usamos 4 barras (////) para indicar caminho absoluto no Linux
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:////mlflow_data/mlflow.db --default-artifact-root ./mlruns
+    volumes:
+      - ./mlruns:/mlruns
+      # AQUI ESTÁ A CORREÇÃO: Mapeamos a pasta, não o arquivo
+      - ./mlflow_data:/mlflow_data

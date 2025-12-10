@@ -1,0 +1,42 @@
+# --- Python & Ambiente Virtual ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# --- MLflow & Base de Dados ---
+mlruns/
+mlartifacts/
+*.db
+mlflow.db
+# Pastas de dados do Docker (cobre as duas tentativas que fizemos)
+mlflow_data/
+mlflow_store/
+
+# --- PyTorch Lightning (Checkpoints Temporários) ---
+# Ignora pastas de logs padrão do Lightning
+lightning_logs/
+# Ignora a pasta de checkpoints que configuramos no services.py
+models/checkpoints/
+# Ignora arquivos de checkpoint (pesados) em qualquer lugar
+*.ckpt
+
+# --- Modelos Treinados (Arquivos Finais) ---
+models/*.pth
+models/*.pkl
+
+# --- Docker & Configurações ---
+.env
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Ignora pastas numéricas na raiz (Restos de runs antigos) ---
+[0-9]*/
+
+# Mantém as pastas vazias no Git
+!models/.gitkeep
+!ml/.gitkeep

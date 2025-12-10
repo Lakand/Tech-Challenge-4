@@ -19,6 +19,9 @@ from pandas.tseries.offsets import BusinessDay
 # 1. Configura ambiente
 setup_logs_and_warnings()
 
+tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+mlflow.set_tracking_uri(tracking_uri)
+
 # 2. Inicia App
 app = FastAPI(title="Modular Stock API")
 

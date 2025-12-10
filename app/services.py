@@ -61,7 +61,8 @@ class ModelService:
 
     def train(self, request):
         """Orquestra o treinamento."""
-        mlf_logger = MLFlowLogger(experiment_name="TechChallenge_Training", tracking_uri="http://localhost:5000")
+        tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+        mlf_logger = MLFlowLogger(experiment_name="TechChallenge_Training", tracking_uri=tracking_uri)
         mlf_logger.log_hyperparams(request.dict())
 
         train_loader, val_loader, scaler, num_features, target_idx = get_dataloaders(
@@ -87,7 +88,8 @@ class ModelService:
             logger=mlf_logger,
             accelerator=accelerator,
             devices=devices,
-            callbacks=[PerformanceMonitorCallback()]
+            callbacks=[PerformanceMonitorCallback()],
+            default_root_dir="models/checkpoints"
         )
 
         trainer.fit(model, train_loader, val_loader)

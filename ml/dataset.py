@@ -28,24 +28,29 @@ def download_and_process_data(symbol, start_date, end_date, seq_length=60, predi
 
     data = df[features].dropna().values 
     
+    # --- CORREÇÃO DO DATA LEAK ---
+    # 1. Definimos onde acaba o treino (80%)
+    train_size_raw = int(len(data) * 0.8)
+    
+    # 2. Criamos o Scaler
     scaler = MinMaxScaler(feature_range=(0, 1))
-    scaled_data = scaler.fit_transform(data)
+    
+    # 3. Ajustamos a "régua" (fit) APENAS nos dados de treino
+    scaler.fit(data[:train_size_raw])
+    
+    # 4. Aplicamos a transformação no conjunto todo
+    # (Assim o teste é normalizado com a base do passado, simulando a vida real)
+    scaled_data = scaler.transform(data)
+    # -----------------------------
     
     target_col_index = features.index('Close')
     
     X, y = [], []
     
-    # --- MUDANÇA MATEMÁTICA AQUI ---
-    # Precisamos subtrair o prediction_steps do range para não estourar o fim da lista
     limit = len(scaled_data) - seq_length - prediction_steps + 1
     
     for i in range(limit):
-        # Entrada: Janela de 60 dias (padrão)
         X.append(scaled_data[i:i+seq_length]) 
-        
-        # Alvo: O dado deslocado pelo número de passos que queremos prever
-        # Se steps=1, pega o índice logo após a janela.
-        # Se steps=7, pega 7 dias após o fim da janela.
         target_idx = i + seq_length + prediction_steps - 1
         y.append(scaled_data[target_idx, target_col_index])
         
