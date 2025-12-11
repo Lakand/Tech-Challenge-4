@@ -9,7 +9,7 @@ class TrainRequest(BaseModel):
     """
     Parâmetros para requisição de treinamento.
     """
-    model_name: str = "default_model"
+    model_name: str = "disney_v1"
     symbol: str = "DIS"
     start_date: str = "2018-01-01"
     end_date: str = "2025-11-30"
@@ -21,6 +21,6 @@ class PredictRequest(BaseModel):
     """
     Parâmetros para requisição de inferência.
     """
-    model_name: str = "default_model"
+    model_name: str = "disney_v1"
     symbol: str = "DIS"
     lookback_days: int = 60
