@@ -23,6 +23,7 @@ O objetivo é prever preços de fechamento de ações utilizando redes neurais L
 │   ├── main.py             # Entrypoint da API e rotas
 │   ├── services.py         # Orquestrador de treino e inferência (Singleton)
 │   ├── schemas.py          # Contratos de dados (Pydantic)
+│   ├── utils.py            # Utilitários de Hardware (GPU)
 │   └── config.py           # Configurações globais e logs
 │
 ├── ml/                     # Núcleo de Machine Learning
@@ -34,7 +35,8 @@ O objetivo é prever preços de fechamento de ações utilizando redes neurais L
 ├── mlruns/                 # Logs locais do MLflow (se rodar localmente)
 ├── Dockerfile              # Definição da imagem da API
 ├── docker-compose.yml      # Orquestração (API + MLflow + SQLite)
-└── requirements.txt        # Dependências do projeto
+├── requirements.txt        # Dependências do projeto
+└── .gitignore              # Arquivos ignorados pelo Git
 ```
 
 ---
@@ -137,8 +139,3 @@ Ao salvar um modelo, geramos dois arquivos na pasta models/:
 
 - {nome}.pth: pesos da rede neural (state dict).
 - {nome}.pkl: metadados (scaler ajustado, número de features, horizonte de previsão), necessários para a desnormalização na inferência.
-
----
-
-## 📝 Autores
-Desenvolvido para o Tech Challenge Fase 4 - Pós-Tech Machine Learning Engineering.
