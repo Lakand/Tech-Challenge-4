@@ -57,14 +57,14 @@ O objetivo é prever preços de fechamento de ações utilizando redes neurais L
 O projeto foi desenhado seguindo princípios de **Clean Architecture** e **MLOps**, visando a separação clara entre a ciência de dados e a engenharia de software.
 
 ### 1. Núcleo de Inteligência (Pasta `ml/`)
-Optou-se por uma arquitetura **LSTM (Long Short-Term Memory)** devido à sua capacidade superior de capturar dependências de longo prazo em séries temporais financeiras, superando modelos lineares clássicos e RNNs simples.
+Optou-se por uma arquitetura **LSTM (Long Short-Term Memory)** devido à sua capacidade superior de capturar dependências de longo prazo em séries temporais financeiras.
 * **Framework:** PyTorch Lightning foi escolhido para abstrair o *loop* de treino, facilitar o uso de GPU e integrar nativamente com o MLflow.
-* **Janelamento:** Os dados são transformados em sequências deslizantes (*sliding windows*) de $N$ dias (Lookback) para prever o dia $N+1$.
+* **Horizonte Flexível (1 a N dias):** O modelo suporta treinamento dinâmico para diferentes horizontes de previsão. Através do parâmetro `prediction_steps`, é possível treinar redes especializadas em prever o dia seguinte (D+1), a próxima semana (D+7) ou qualquer intervalo arbitrário (D+N), ajustando automaticamente o alvo ($y$) durante o processamento dos dados.
 
 ### 2. Camada de Aplicação (Pasta `app/`)
 A API foi construída sobre o **FastAPI** pela sua natureza assíncrona e validação automática de tipos (Pydantic).
-* **Padrão Singleton:** A classe `ModelService` (`app/services.py`) implementa o padrão Singleton para carregar o modelo em memória apenas uma vez. Isso evita o custo de I/O a cada requisição, garantindo latência de inferência na ordem de milissegundos.
-* **Contratos de Dados:** O uso de schemas (`app/schemas.py`) blinda a aplicação contra entradas inválidas (ex: datas erradas, símbolos inexistentes).
+* **Padrão Singleton:** A classe `ModelService` (`app/services.py`) implementa o padrão Singleton para manter o modelo carregado em memória. Isso evita o custo de I/O a cada requisição, garantindo latência de inferência na ordem de milissegundos.
+* **Contratos de Dados:** O uso de schemas (`app/schemas.py`) valida rigorosamente as entradas, garantindo que parâmetros críticos como datas e horizontes de previsão estejam no formato correto.
 
 ### 3. Infraestrutura Híbrida
 A solução suporta dois modos de execução sem alteração de código, graças à gestão dinâmica de variáveis de ambiente:
@@ -162,6 +162,30 @@ Acesse a documentação interativa (Swagger UI): http://localhost:8000/docs
   "lookback_days": 60
 }
 ```
+
+---
+
+### 📘 Detalhamento dos Parâmetros
+
+Entenda a função de cada campo nas requisições:
+
+#### 1. Treinamento (`POST /train`)
+| Parâmetro | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `model_name` | `string` | Identificador único para salvar o modelo (ex: "v1_disney"). Permite criar múltiplas versões sem sobrescrever. |
+| `symbol` | `string` | Ticker da ação no Yahoo Finance (ex: "DIS", "AAPL", "PETR4.SA"). O modelo será treinado neste ativo. |
+| `start_date` | `yyyy-mm-dd` | Início do período histórico de dados para treino. |
+| `end_date` | `yyyy-mm-dd` | Fim do período histórico. |
+| `epochs` | `int` | Número de vezes que o modelo verá o dataset completo. |
+| `batch_size` | `int` | Quantidade de dados processados por vez antes de atualizar os pesos. |
+| `prediction_steps` | `int` | **Horizonte de Previsão:** Define o alvo da predição. Use `1` para prever o dia seguinte ou `N` para prever o preço daqui a N dias. |
+
+#### 2. Predição (`POST /predict`)
+| Parâmetro | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `model_name` | `string` | Nome do arquivo do modelo (`.pth`) a ser carregado da pasta `models/`. |
+| `symbol` | `string` | Ticker do ativo para baixar os dados mais recentes (janela de entrada). |
+| `lookback_days` | `int` | **Janela de Contexto:** Quantos dias passados o modelo deve analisar para calcular o futuro. |
 
 ---
 
