@@ -20,10 +20,8 @@ services:
     container_name: mlflow_server
     ports:
       - "5000:5000"
-    # TRUQUE: Mapeamos o banco para dentro da pasta /mlflow_data
     # Usamos 4 barras (////) para indicar caminho absoluto no Linux
     command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:////mlflow_data/mlflow.db --default-artifact-root ./mlruns
     volumes:
       - ./mlruns:/mlruns
-      # AQUI ESTÁ A CORREÇÃO: Mapeamos a pasta, não o arquivo
       - ./mlflow_data:/mlflow_data
