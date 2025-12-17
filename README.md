@@ -82,6 +82,10 @@ O sistema consome dados históricos do mercado financeiro em tempo real, garanti
 - **Provedor:** Yahoo Finance (via biblioteca `yfinance`).
 - **Flexibilidade:** A API aceita qualquer *ticker* de ação listado na bolsa (ex: `DIS`, `AAPL`, `PETR4.SA`, `^BVSP`).
 - **Coleta Sob Demanda:** Os dados não são estáticos; eles são baixados dinamicamente no momento do treino (`POST /train`) com base no intervalo de datas (`start_date`, `end_date`) fornecido pelo usuário.
+
+Para fins de validação do desafio, foram realizados testes utilizando ações do ticker DIS (Disney).
+
+
 ---
 
 ## 🛠️ Como executar
@@ -210,6 +214,29 @@ O sistema registra automaticamente:
 
 ---
 
+### 📈 Resultados Obtidos (Epoch 199)
+
+Abaixo, apresentamos a convergência do modelo durante um treinamento de 199 épocas. O modelo final atingiu estabilidade com métricas competitivas para séries temporais financeiras.
+
+| Convergência (Loss) | Qualidade do Ajuste (R² Score) |
+|:---:|:---:|
+| ![Loss Graph](docs/img/val_loss.png) | ![R2 Graph](docs/img/val_r2.png) |
+| *A curva de perda (MSE) estabiliza rapidamente, indicando aprendizado efetivo sem underfitting severo.* | *O R² próximo de 0.77 demonstra que o modelo consegue explicar a maior parte da variância dos preços.* |
+
+#### 📊 Métricas Finais (Validação):
+
+| Métrica | Valor Final | Significado |
+| :--- | :--- | :--- |
+| **Val Loss (MSE)** | `0.000196` | Erro Quadrático Médio. A função de custo minimizada pelo modelo. |
+| **MAE** | `0.00942` | *Mean Absolute Error*. O erro médio absoluto em dólares/reais (escala normalizada). |
+| **MAPE** | `0.0601` | *Mean Absolute Percentage Error*. A porcentagem média de erro por predição. |
+| **RMSE** | `0.013` | *Root Mean Squared Error*. Penaliza erros maiores mais severamente que o MAE. |
+| **R² Score** | `0.771` | *Coefficient of Determination*. Indica quão bem o modelo se ajusta aos dados (1.0 é perfeito). |
+
+*(Valores referentes ao último checkpoint salvo na época 199)*
+
+---
+
 ## 🧠 Detalhes técnicos
 
 ### Prevenção de Data Leakage
@@ -241,3 +268,9 @@ Projeto desenvolvido por:
 * **Celso Lopes** - RM: 364112 
 
 Desenvolvido para o **Tech Challenge Fase 4** - Pós-Tech Machine Learning Engineering (FIAP).
+
+---
+
+## ⚠️ Disclaimer
+
+Este projeto tem fins estritamente educacionais para demonstração de conhecimentos em Engenharia de Machine Learning. As previsões geradas pelo modelo **não constituem recomendação de investimento**. O mercado financeiro é volátil e modelos baseados puramente em preços passados podem não capturar eventos exógenos.
