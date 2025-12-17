@@ -3,6 +3,7 @@ Módulo de processamento de dados e datasets.
 
 Este módulo é responsável por baixar dados financeiros, realizar o pré-processamento
 (normalização e janelamento) e fornecer os DataLoaders para o PyTorch.
+Define também as features globais utilizadas pelo modelo.
 """
 import yfinance as yf
 import numpy as np
@@ -10,6 +11,9 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
+
+# Define as colunas usadas globalmente para garantir consistência entre treino e inferência
+FEATURES = ['Open', 'High', 'Low', 'Close', 'Volume']
 
 class StockDataset(Dataset):
     """
@@ -34,7 +38,7 @@ def download_and_process_data(symbol, start_date, end_date, seq_length=60, predi
     Baixa dados do Yahoo Finance e prepara as sequências para treino/teste.
 
     Realiza a normalização dos dados garantindo que não haja vazamento de dados (Data Leakage),
-    ajustando o scaler apenas nos dados de treino.
+    ajustando o scaler apenas nos dados de treino. Utiliza a constante global FEATURES.
 
     Args:
         symbol (str): O ticker da ação (ex: 'DIS', 'AAPL').
@@ -49,14 +53,12 @@ def download_and_process_data(symbol, start_date, end_date, seq_length=60, predi
     Raises:
         ValueError: Se nenhum dado for encontrado para o símbolo especificado.
     """
-    features = ['Open', 'High', 'Low', 'Close', 'Volume']
-    
     df = yf.download(symbol, start=start_date, end=end_date)
     
     if df.empty:
         raise ValueError(f"Nenhum dado encontrado para {symbol}.")
 
-    data = df[features].dropna().values 
+    data = df[FEATURES].dropna().values 
     
     # Prevenção de Data Leakage: Fit apenas no conjunto de treino (primeiros 80%)
     train_size_raw = int(len(data) * 0.8)
@@ -67,7 +69,7 @@ def download_and_process_data(symbol, start_date, end_date, seq_length=60, predi
     # Aplica a transformação em todos os dados usando a escala aprendida no treino
     scaled_data = scaler.transform(data)
     
-    target_col_index = features.index('Close')
+    target_col_index = FEATURES.index('Close')
     
     X, y = [], []
     

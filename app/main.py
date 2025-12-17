@@ -22,10 +22,8 @@ from app.services import model_service
 from mlflow.tracking import MlflowClient
 from pandas.tseries.offsets import BusinessDay
 
-# Inicialização de configurações globais
 setup_logs_and_warnings()
 
-# Configuração dinâmica do MLflow (Docker vs Local)
 tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 mlflow.set_tracking_uri(tracking_uri)
 
@@ -36,7 +34,11 @@ def train_endpoint(request: TrainRequest):
     """
     Endpoint para iniciar o treinamento de um modelo LSTM.
 
-    Registra métricas de tempo total e uso de hardware no MLflow ao final do processo.
+    Este endpoint:
+    1. Baixa os dados históricos conforme solicitado.
+    2. Treina o modelo.
+    3. Persiste os pesos e metadados (symbol, lookback, features) no disco.
+    4. Registra métricas de tempo total e uso de hardware no MLflow.
     """
     start_time = time.time()
     try:
@@ -58,65 +60,68 @@ def predict_endpoint(request: PredictRequest):
     """
     Endpoint para inferência de preços futuros.
 
-    Calcula latência, uso de RAM/CPU/GPU e registra todos os metadados no MLflow.
-    Suporta previsão para múltiplos horizontes temporais (dias).
+    Diferente de versões anteriores, este endpoint é inteligente:
+    - Recupera automaticamente o Símbolo, Lookback e Features do modelo treinado.
+    - Garante que a entrada da predição seja idêntica à usada no treino.
+    
+    Registra latência, uso de RAM/CPU/GPU e metadados no MLflow.
     """
-    # Snapshot inicial de recursos
     start_time = time.time()
     process = psutil.Process(os.getpid())
     
-    # Garante que o modelo solicitado está carregado
     if not model_service.load_model(request.model_name):
         raise HTTPException(404, f"Modelo '{request.model_name}' não encontrado.")
     
-    # Recupera referências do serviço
     model = model_service.current_model
     scaler = model_service.scaler
     current_steps = model_service.prediction_steps
+    lookback = model_service.lookback_days
+    symbol = model_service.symbol
+    features_list = model_service.features 
+
+    if not symbol:
+        raise HTTPException(400, "Este modelo é antigo e não possui símbolo salvo. Por favor, treine-o novamente.")
     
-    # Prepara dispositivo (GPU se disponível)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()
     
     try:
-        # Obtenção de dados recentes para a janela de lookback
         import datetime
         end = datetime.datetime.now().strftime("%Y-%m-%d")
-        start = (datetime.datetime.now() - datetime.timedelta(days=request.lookback_days * 4)).strftime("%Y-%m-%d")
+        start = (datetime.datetime.now() - datetime.timedelta(days=lookback * 4)).strftime("%Y-%m-%d")
         
-        df = yf.download(request.symbol, start=start, end=end)
-        if len(df) < request.lookback_days:
-            raise ValueError("Dados insuficientes para gerar a janela de entrada.")
+        df = yf.download(symbol, start=start, end=end)
+        
+        if len(df) < lookback:
+            raise ValueError(f"Dados insuficientes. O modelo requer {lookback} dias, mas só encontramos {len(df)}.")
             
-        # Cálculo da data alvo (Business Days)
         last_real_date_obj = df.index[-1]
         last_real_date_str = last_real_date_obj.strftime("%Y-%m-%d")
         target_date_obj = last_real_date_obj + BusinessDay(current_steps)
         target_date_str = target_date_obj.strftime("%Y-%m-%d")
 
-        # Pré-processamento e Inferência
-        features = ['Open', 'High', 'Low', 'Close', 'Volume']
-        input_data = df[features].dropna().values[-request.lookback_days:]
+        try:
+            input_data = df[features_list].dropna().values[-lookback:]
+        except KeyError as e:
+            raise ValueError(f"O modelo espera as colunas {features_list}, mas os dados baixados não contêm todas elas. Erro: {e}")
+
         scaled_input = scaler.transform(input_data)
         
         seq_tensor = torch.FloatTensor(scaled_input).unsqueeze(0).to(device)
         with torch.no_grad():
             prediction = model(seq_tensor)
             
-        # Desnormalização
         dummy = np.zeros((1, model_service.num_features))
         dummy[0, model_service.target_idx] = prediction.cpu().item()
         final_price = scaler.inverse_transform(dummy)[0, model_service.target_idx]
         
-        # Coleta de métricas finais
         end_time = time.time()
         latency = end_time - start_time
         end_ram = process.memory_info().rss / (1024 * 1024)
         cpu_usage = psutil.cpu_percent(interval=None)
         gpu_vram, gpu_util = get_gpu_metrics()
         
-        # Log no MLflow
         mlflow.set_experiment("TechChallenge_Production_Inference")
         with mlflow.start_run(run_name=f"predict_{request.model_name}"):
             mlflow.log_metric("predicted_price", float(final_price))
@@ -127,13 +132,13 @@ def predict_endpoint(request: PredictRequest):
             mlflow.log_metric("gpu_util_percent", gpu_util)
             
             mlflow.set_tag("model_used", request.model_name)
-            mlflow.set_tag("symbol", request.symbol)
+            mlflow.set_tag("symbol", symbol)
             mlflow.set_tag("target_date", target_date_str)
             mlflow.set_tag("prediction_horizon", current_steps)
 
         return {
             "model_used": request.model_name,
-            "symbol": request.symbol,
+            "symbol": symbol,
             "predicted_close_price": float(final_price),
             "prediction_info": {
                 "steps_ahead": current_steps,
@@ -152,7 +157,6 @@ def predict_endpoint(request: PredictRequest):
         raise HTTPException(500, str(e))
 
 if __name__ == "__main__":
-    # Inicializa processo do MLflow UI em segundo plano (apenas para ambiente local)
     mlflow_process = subprocess.Popen(["mlflow", "ui", "--port", "5000"], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     atexit.register(lambda: subprocess.run(f"taskkill /F /PID {mlflow_process.pid} /T", shell=True, stderr=subprocess.DEVNULL))
     

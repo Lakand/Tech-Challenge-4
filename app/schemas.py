@@ -16,11 +16,10 @@ class TrainRequest(BaseModel):
     epochs: int = 5
     batch_size: int = 32
     prediction_steps: int = 1
+    lookback_days: int = 60 
 
 class PredictRequest(BaseModel):
     """
     Parâmetros para requisição de inferência.
     """
     model_name: str = "disney_v1"
-    symbol: str = "DIS"
-    lookback_days: int = 60
