@@ -4,6 +4,8 @@ Este projeto consiste em uma solução End-to-End de Machine Learning Engineerin
 
 O objetivo é prever preços de fechamento de ações utilizando redes neurais LSTM (Long Short-Term Memory), servidas por uma API RESTful modularizada, conteinerizada e monitorada.
 
+---
+
 ## 🛠️ Tecnologias Utilizadas
 
 ![Python](https://img.shields.io/badge/python-3.10-blue?style=for-the-badge&logo=python&logoColor=white)
@@ -17,12 +19,12 @@ O objetivo é prever preços de fechamento de ações utilizando redes neurais L
 
 ## 🚀 Funcionalidades principais
 
-- Deep Learning com PyTorch Lightning: implementação de rede LSTM otimizada para séries temporais.
-- API RESTful (FastAPI): endpoints assíncronos para treinamento e inferência em tempo real.
-- Experiment Tracking (MLflow): rastreio completo de métricas (RMSE, MAE, R²), hiperparâmetros e artefatos.
-- Monitoramento de hardware: hooks personalizados para monitorar uso de CPU, RAM e GPU (VRAM) durante treino e inferência.
-- Arquitetura híbrida: suporte transparente para execução em Docker (CPU/produção) e local (GPU/desenvolvimento).
-- Prevenção de Data Leakage: pipeline de dados com normalização ajustada apenas no conjunto de treino.
+- **Deep Learning com PyTorch Lightning:** implementação de rede LSTM otimizada para séries temporais.
+- **API Inteligente (Stateful):** O endpoint de predição carrega automaticamente as configurações usadas no treino (símbolo, janela temporal e features), evitando erros manuais.
+- **Experiment Tracking (MLflow):** rastreio completo de métricas (RMSE, MAE, R²), hiperparâmetros e artefatos.
+- **Monitoramento de hardware:** hooks personalizados para monitorar uso de CPU, RAM e GPU (VRAM) durante treino e inferência.
+- **Arquitetura híbrida:** suporte transparente para execução em Docker (CPU/produção) e local (GPU/desenvolvimento).
+- **Prevenção de Data Leakage:** pipeline de dados com normalização ajustada apenas no conjunto de treino.
 
 ---
 
@@ -59,12 +61,12 @@ O projeto foi desenhado seguindo princípios de **Clean Architecture** e **MLOps
 ### 1. Núcleo de Inteligência (Pasta `ml/`)
 Optou-se por uma arquitetura **LSTM (Long Short-Term Memory)** devido à sua capacidade superior de capturar dependências de longo prazo em séries temporais financeiras.
 * **Framework:** PyTorch Lightning foi escolhido para abstrair o *loop* de treino, facilitar o uso de GPU e integrar nativamente com o MLflow.
-* **Horizonte Flexível (1 a N dias):** O modelo suporta treinamento dinâmico para diferentes horizontes de previsão. Através do parâmetro `prediction_steps`, é possível treinar redes especializadas em prever o dia seguinte (D+1), a próxima semana (D+7) ou qualquer intervalo arbitrário (D+N), ajustando automaticamente o alvo ($y$) durante o processamento dos dados.
+* **Horizonte Flexível (1 a N dias):** O modelo suporta treinamento dinâmico para diferentes horizontes de previsão. Através do parâmetro `prediction_steps`, é possível treinar redes especializadas em prever o dia seguinte (D+1), a próxima semana (D+7) ou qualquer intervalo arbitrário (D+N).
 
 ### 2. Camada de Aplicação (Pasta `app/`)
 A API foi construída sobre o **FastAPI** pela sua natureza assíncrona e validação automática de tipos (Pydantic).
 * **Padrão Singleton:** A classe `ModelService` (`app/services.py`) implementa o padrão Singleton para manter o modelo carregado em memória. Isso evita o custo de I/O a cada requisição, garantindo latência de inferência na ordem de milissegundos.
-* **Contratos de Dados:** O uso de schemas (`app/schemas.py`) valida rigorosamente as entradas, garantindo que parâmetros críticos como datas e horizontes de previsão estejam no formato correto.
+* **Inferência Inteligente:** A API gerencia o estado dos modelos. Ao carregar um modelo treinado, ela recupera automaticamente o *lookback* (tamanho da janela) e as *features* exatas usadas no treinamento, garantindo que a entrada da predição seja sempre compatível.
 
 ### 3. Infraestrutura Híbrida
 A solução suporta dois modos de execução sem alteração de código, graças à gestão dinâmica de variáveis de ambiente:
@@ -125,7 +127,7 @@ Se ao rodar o Docker aparecer erro nas portas `8000` ou `5000`, certifique-se de
 
 ### 2. Erro de Permissão no Banco de Dados (SQLite)
 Se o MLflow reclamar de "readonly database" ou "unable to open database file".
-* **Solução:** O arquivo `docker-compose.yml` já trata isso mapeando a pasta `/mlflow_data`, mas se persistir, apague a pasta `mlflow_data` local e reinicie o Docker.
+* **Solução:** O arquivo `docker-compose.yml` já trata isso mapeando a pasta `/mlflow_data`. Se persistir, apague a pasta `mlflow_data` local e reinicie o Docker.
 
 ### 3. GPU não detectada (Execução Local)
 Se o log mostrar `CUDA available: False` mesmo você tendo uma placa NVIDIA.
@@ -137,8 +139,10 @@ Se o log mostrar `CUDA available: False` mesmo você tendo uma placa NVIDIA.
 
 Acesse a documentação interativa (Swagger UI): http://localhost:8000/docs
 
-1. Treinar um modelo (POST /train)  
-   Exemplo de payload:
+### 1. Treinar um modelo (`POST /train`)
+Nesta etapa, você define a arquitetura temporal (lookback) e o alvo da previsão.
+
+Exemplo de payload:
 
 ```json
 {
@@ -148,7 +152,8 @@ Acesse a documentação interativa (Swagger UI): http://localhost:8000/docs
   "end_date": "2025-10-30",
   "epochs": 5,
   "batch_size": 32,
-  "prediction_steps": 1
+  "prediction_steps": 1,
+  "lookback_days": 60
 }
 ```
 
@@ -157,9 +162,7 @@ Acesse a documentação interativa (Swagger UI): http://localhost:8000/docs
 
 ```json
 {
-  "model_name": "disney_v1",
-  "symbol": "DIS",
-  "lookback_days": 60
+  "model_name": "disney_v1"
 }
 ```
 
@@ -167,25 +170,22 @@ Acesse a documentação interativa (Swagger UI): http://localhost:8000/docs
 
 ### 📘 Detalhamento dos Parâmetros
 
-Entenda a função de cada campo nas requisições:
-
 #### 1. Treinamento (`POST /train`)
 | Parâmetro | Tipo | Descrição |
 | :--- | :--- | :--- |
-| `model_name` | `string` | Identificador único para salvar o modelo (ex: "v1_disney"). Permite criar múltiplas versões sem sobrescrever. |
-| `symbol` | `string` | Ticker da ação no Yahoo Finance (ex: "DIS", "AAPL", "PETR4.SA"). O modelo será treinado neste ativo. |
+| `model_name` | `string` | Identificador único para salvar o modelo (ex: "v1_disney"). |
+| `symbol` | `string` | Ticker da ação no Yahoo Finance (ex: "DIS", "AAPL", "PETR4.SA"). |
 | `start_date` | `yyyy-mm-dd` | Início do período histórico de dados para treino. |
 | `end_date` | `yyyy-mm-dd` | Fim do período histórico. |
-| `epochs` | `int` | Número de vezes que o modelo verá o dataset completo. |
-| `batch_size` | `int` | Quantidade de dados processados por vez antes de atualizar os pesos. |
-| `prediction_steps` | `int` | **Horizonte de Previsão:** Define o alvo da predição. Use `1` para prever o dia seguinte ou `N` para prever o preço daqui a N dias. |
+| `epochs` | `int` | Ciclos completos de treinamento sobre o dataset. |
+| `batch_size` | `int` | Quantidade de dados processados por lote. |
+| `prediction_steps` | `int` | **Horizonte:** Quantos dias à frente queremos prever (1=amanhã, 7=semana que vem). |
+| `lookback_days` | `int` | **Janela de Memória:** Quantos dias passados a LSTM analisará para tomar decisão. |
 
 #### 2. Predição (`POST /predict`)
 | Parâmetro | Tipo | Descrição |
 | :--- | :--- | :--- |
-| `model_name` | `string` | Nome do arquivo do modelo (`.pth`) a ser carregado da pasta `models/`. |
-| `symbol` | `string` | Ticker do ativo para baixar os dados mais recentes (janela de entrada). |
-| `lookback_days` | `int` | **Janela de Contexto:** Quantos dias passados o modelo deve analisar para calcular o futuro. |
+| `model_name` | `string` | Nome do modelo previamente treinado a ser carregado. |
 
 ---
 
@@ -206,12 +206,13 @@ O sistema registra automaticamente:
 ### Prevenção de Data Leakage
 Um erro comum em séries temporais é normalizar o dataset inteiro antes da divisão. Neste projeto, o MinMaxScaler é ajustado (fit) apenas nos dados de treino (primeiros 80%) e aplicado (transform) nos dados de validação. Assim, o modelo não tem acesso a estatísticas do futuro.
 
-### Persistência robusta
-Ao salvar um modelo, geramos dois arquivos na pasta models/:
+### Persistência de Metadados e Consistência
+Para garantir a robustez da API, não salvamos apenas os pesos da rede neural (`.pth`). Salvamos também um arquivo de artefatos (`.pkl`) contendo:
+- O **Scaler** ajustado (para desnormalizar a saída corretamente).
+- A lista de **Features** usadas (para garantir que a API baixe as colunas corretas, ex: Open, Close, Volume).
+- Os hiperparâmetros estruturais (**Lookback** e **Horizonte**).
 
-- {nome}.pth: pesos da rede neural (state dict).
-- {nome}.pkl: metadados (scaler ajustado, número de features, horizonte de previsão), necessários para a desnormalização na inferência.
-
+Isso permite que a API evolua (ex: adicionando novos indicadores técnicos no futuro) sem quebrar a compatibilidade com modelos antigos.
 ---
 
 ## 🔮 Próximos Passos e Melhorias Futuras
