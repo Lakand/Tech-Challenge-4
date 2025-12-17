@@ -55,8 +55,6 @@ class PerformanceMonitorCallback(pl.Callback):
                 pass
 
         # Logar no MLflow (através do objeto pl_module)
-        # prog_bar=True faz aparecer na barra de progresso do terminal
-        # logger=True faz aparecer nos gráficos do MLflow
         pl_module.log("sys_ram_mb", ram_mb, prog_bar=True, logger=True)
         pl_module.log("sys_cpu_percent", cpu_percent, prog_bar=False, logger=True)
         pl_module.log("sys_gpu_vram_mb", gpu_vram, prog_bar=True, logger=True)

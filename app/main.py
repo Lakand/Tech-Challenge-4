@@ -69,6 +69,7 @@ def predict_endpoint(request: PredictRequest):
     start_time = time.time()
     process = psutil.Process(os.getpid())
     
+    # 1. Carrega o modelo e seus metadados (symbol, lookback, features)
     if not model_service.load_model(request.model_name):
         raise HTTPException(404, f"Modelo '{request.model_name}' não encontrado.")
     
@@ -87,6 +88,7 @@ def predict_endpoint(request: PredictRequest):
     model.eval()
     
     try:
+        # 2. Obtém dados recentes baseados no lookback do modelo (não do request)
         import datetime
         end = datetime.datetime.now().strftime("%Y-%m-%d")
         start = (datetime.datetime.now() - datetime.timedelta(days=lookback * 4)).strftime("%Y-%m-%d")
@@ -101,6 +103,7 @@ def predict_endpoint(request: PredictRequest):
         target_date_obj = last_real_date_obj + BusinessDay(current_steps)
         target_date_str = target_date_obj.strftime("%Y-%m-%d")
 
+        # 3. Garante que as colunas (features) sejam as mesmas do treino
         try:
             input_data = df[features_list].dropna().values[-lookback:]
         except KeyError as e:

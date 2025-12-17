@@ -14,7 +14,8 @@ class StockLSTM(pl.LightningModule):
     Modelo LSTM para previsão de preços de ações.
 
     Herda de pl.LightningModule para facilitar a integração com PyTorch Lightning
-    e MLflow.
+    e MLflow. A arquitetura consiste em camadas LSTM empilhadas seguidas de uma
+    camada linear densa.
 
     Attributes:
         lstm (nn.LSTM): Camada recorrente LSTM.
@@ -26,6 +27,16 @@ class StockLSTM(pl.LightningModule):
         r2 (R2Score): Coeficiente de determinação.
     """
     def __init__(self, input_dim=5, hidden_dim=64, num_layers=2, output_dim=1, learning_rate=0.001):
+        """
+        Inicializa a arquitetura da rede neural.
+
+        Args:
+            input_dim (int): Número de features de entrada (ex: Open, Close, etc.).
+            hidden_dim (int): Número de neurónios na camada oculta da LSTM.
+            num_layers (int): Número de camadas LSTM empilhadas.
+            output_dim (int): Dimensão da saída (1 para previsão de preço único).
+            learning_rate (float): Taxa de aprendizado para o otimizador Adam.
+        """
         super().__init__()
         self.save_hyperparameters()
 
@@ -50,16 +61,27 @@ class StockLSTM(pl.LightningModule):
             x (torch.Tensor): Tensor de entrada com shape (batch, seq_len, features).
 
         Returns:
-            torch.Tensor: Previsão do modelo.
+            torch.Tensor: Previsão do modelo com shape (batch, output_dim).
         """
         out, _ = self.lstm(x)
-        # Seleciona apenas a saída do último passo temporal
+        # Seleciona apenas a saída do último passo temporal para predição many-to-one
         out = out[:, -1, :]
         prediction = self.fc(out)
         return prediction
 
     def training_step(self, batch, batch_idx):
-        """Executa um passo de treinamento e registra o loss."""
+        """
+        Executa um passo de treinamento.
+
+        Calcula a perda (loss) e a regista para monitoramento.
+
+        Args:
+            batch (tuple): Tupla contendo (features, targets).
+            batch_idx (int): Índice do lote atual.
+
+        Returns:
+            torch.Tensor: Valor da função de perda.
+        """
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
@@ -67,7 +89,18 @@ class StockLSTM(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        """Executa um passo de validação e registra múltiplas métricas."""
+        """
+        Executa um passo de validação.
+
+        Calcula e regista múltiplas métricas de performance (MAE, RMSE, R2).
+
+        Args:
+            batch (tuple): Tupla contendo (features, targets).
+            batch_idx (int): Índice do lote atual.
+
+        Returns:
+            torch.Tensor: Valor da função de perda.
+        """
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
@@ -88,5 +121,10 @@ class StockLSTM(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        """Configura o otimizador Adam."""
+        """
+        Configura o otimizador do modelo.
+
+        Returns:
+            torch.optim.Optimizer: Otimizador Adam configurado com a learning rate definida.
+        """
         return Adam(self.parameters(), lr=self.hparams.learning_rate)

@@ -37,8 +37,8 @@ def get_gpu_metrics():
     Se não houver GPU ou a biblioteca não estiver instalada, retorna zeros.
 
     Returns:
-        tuple: (VRAM_Usada_MB, Utilizacao_Percentual)
-               Exemplo: (2048.5, 45)
+        tuple: Uma tupla (VRAM_Usada_MB, Utilizacao_Percentual).
+               Exemplo: (2048.5, 45). Retorna (0, 0) em caso de erro ou ausência de GPU.
     """
     if not HAS_GPU_MONITORING or not torch.cuda.is_available():
         return 0, 0

@@ -38,7 +38,7 @@ def download_and_process_data(symbol, start_date, end_date, seq_length=60, predi
     Baixa dados do Yahoo Finance e prepara as sequências para treino/teste.
 
     Realiza a normalização dos dados garantindo que não haja vazamento de dados (Data Leakage),
-    ajustando o scaler apenas nos dados de treino. Utiliza a constante global FEATURES.
+    ajustando o scaler apenas nos dados de treino.
 
     Args:
         symbol (str): O ticker da ação (ex: 'DIS', 'AAPL').

@@ -3,7 +3,7 @@ Serviços de Orquestração de Machine Learning.
 
 Este módulo contém a lógica de negócio para gerenciar o ciclo de vida dos modelos,
 incluindo treinamento, carregamento de artefatos e gestão de estado global (Singleton).
-Agora suporta persistência avançada de metadados (features, symbols, lookback).
+Suporta persistência avançada de metadados (features, symbols, lookback).
 """
 import os
 import torch
@@ -98,7 +98,7 @@ class ModelService:
         Executa o pipeline completo de treinamento.
 
         1. Configura o MLflow Logger.
-        2. Prepara os dados (usando lookback e features globais).
+        2. Prepara os dados.
         3. Treina o modelo usando PyTorch Lightning.
         4. Salva os artefatos (.pth e .pkl) incluindo metadados de features e símbolo.
 
