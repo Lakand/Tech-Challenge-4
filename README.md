@@ -30,6 +30,8 @@ O objetivo é prever preços de fechamento de ações utilizando redes neurais L
 
 ## 📂 Estrutura do projeto
 
+## 📂 Estrutura do projeto
+
 ```text
 /
 ├── app/                    # Lógica da aplicação (API)
@@ -46,6 +48,7 @@ O objetivo é prever preços de fechamento de ações utilizando redes neurais L
 │
 ├── models/                 # Persistência de modelos (.pth e .pkl)
 ├── mlruns/                 # Logs locais do MLflow (se rodar localmente)
+├── images/                 # Gráficos e evidências visuais (README)
 ├── Dockerfile              # Definição da imagem da API
 ├── docker-compose.yml      # Orquestração (API + MLflow + SQLite)
 ├── requirements.txt        # Dependências do projeto
@@ -220,7 +223,7 @@ Abaixo, apresentamos a convergência do modelo durante um treinamento de 199 ép
 
 | Convergência (Loss) | Qualidade do Ajuste (R² Score) |
 |:---:|:---:|
-| ![Loss Graph](docs/img/val_loss.png) | ![R2 Graph](docs/img/val_r2.png) |
+| ![Loss Graph](images/val_loss.png) | ![R2 Graph](images/val_r2.png) |
 | *A curva de perda (MSE) estabiliza rapidamente, indicando aprendizado efetivo sem underfitting severo.* | *O R² próximo de 0.77 demonstra que o modelo consegue explicar a maior parte da variância dos preços.* |
 
 #### 📊 Métricas Finais (Validação):
