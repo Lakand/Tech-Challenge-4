@@ -75,6 +75,15 @@ A solução suporta dois modos de execução sem alteração de código, graças
 
 ---
 
+## 📊 Fonte de Dados
+
+O sistema consome dados históricos do mercado financeiro em tempo real, garantindo que o modelo seja treinado com informações atualizadas.
+
+- **Provedor:** Yahoo Finance (via biblioteca `yfinance`).
+- **Flexibilidade:** A API aceita qualquer *ticker* de ação listado na bolsa (ex: `DIS`, `AAPL`, `PETR4.SA`, `^BVSP`).
+- **Coleta Sob Demanda:** Os dados não são estáticos; eles são baixados dinamicamente no momento do treino (`POST /train`) com base no intervalo de datas (`start_date`, `end_date`) fornecido pelo usuário.
+---
+
 ## 🛠️ Como executar
 
 ### Opção A: Via Docker (recomendado)
